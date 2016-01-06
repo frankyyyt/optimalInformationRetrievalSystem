@@ -1,6 +1,6 @@
 # src
 This is the Source file of the CSE535.
-eam name:optimalInformationRetrievalSystem
+Team name:optimalInformationRetrievalSystem
 team_member:
 
              First name     Last name      UBITname

@@ -4,7 +4,7 @@ eam name:optimalInformationRetrievalSystem
 team_member:
 
              First name     Last name      UBITname
-team leader: Fengguo        Tian           fengguot
+             Fengguo        Tian           fengguot
              Weili          Zhu            weilizhu
              Mark           Starczewski    markstar
              

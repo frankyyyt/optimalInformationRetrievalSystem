@@ -1,0 +1,91 @@
+Report_optimalInformationRetrievalSystem
+Fengguo Tian, Weili Zhu, Mark Starczewski
+
+0. Overview
+The goal of this project is to build a multilingual faceted search system which we implemented the following function modules: Multilingual Information Retrieval, Content Tagging, Faceted Search, Cross-document analytics, Topical or Semantic search, and we build a Graphic User Interface a searching website that allows users to search and browse multilingual data based on various criteria: Topic, Country, City, Person, Hashtag. Moreover, you can get different static results of each criterion, such as how many tweets for special topic of each language and the corresponding clusters and the number of documents of each cluster. And for Cross-document analytics, you can get the sentiment analysis result and trending and sub-trending topics based on the static results on the website. Overall, by these kinds of methods, we hope to build a state of art Optimal Information Retrieval System (OIRS) and let the user have a deeper understanding of the query topic.
+For our system, we host the system on the Amazon Web Services (AWS) - Cloud Computing Services [1] and implementing the searching module in Solr and using PHP to process the intermediate result such as process the format of the result and draw the function chart and build the GUI.
+For solr schema: We use Language Model (LM).
+The following sections describe the various tasks involved, evaluation criteria.
+1. Data:
+The data is multilingual social media data (which is from Twitter) in multiple languages: English, French, Arabic and German. 
+Number of Data: 11513 Twitter posts in total: 3400 in English; 2497 in French, 2028 in Arabic; 3588 in German.
+The topics are the following: 
+Topic in English = {"Paris attacks", "Syrian refugee", “refugee crisis”, "russian turkey", "isis attacks", “Kenyan bombings”};
+Topic in German = {"Islam","Paris -Attacken", "syrischer Flüchtlinge","Angela Merkel","Isis -Attacken"};
+Topic in Arabic = {"الهجمات باريس", "اللاجئين السوريين","تركيا الروسية","إيزيس","سلمان‎","العربية السعودية","الإسلام"};
+Topic in French = {"Islam", "Terrorisme en France", "réfugiés syrienne","Turquie russe","attaques ISIS"};
+2. Algorithms/implementation
+2.1. Implementation of Cross-Lingual Retrieval/Analysis:
+For the Cross-Lingual Retrieval/Analysis part [2], we use Microsoft Translation API to implement. So there are four different languages: English, German, French and Arabic. For one certain query, it will be translated into four different language versions. While we are search in solr, the type is edismax and qf has four different field: text_en, text_de, text_fr and text_ar. Also, the query combines four different language versions with keyword “OR”.
+When users search a query, results of different languages will be returned, including text field, created_at field, tweet_hashtags field and tweet_urls field. Also, the translation of the query will be provided.
+2.2. Implementation of Content Tagging 
+
+For the content tagging part [4], we use Alchemy to do the job. First we set up the Alchemy account, which give us access to NLP process. Second, in the php files, we need to extract all the entities in the query results from solr. Before doing this, considering that we may need to do sentiment analyze, so we need to set the “options” array for sentiment:
+$options["sentiment"]=1;
+So next, we need to get the results from Alchemy:
+$response = $alchemyapi->entities("url", $urladd, $options);
+After we get the response from Alchemy, we can get different entities. In this project, we pick four different entities: Person, Country, City and Hashtag.
+2.3. Implementation of Faceted Search
+After Content Tagging, we pick four different kinds of entities to implement Faceted Search [3], which are Person, Country, City and Hashtag. When users chose one entity and click “Faceted Search” button on the web, we use filter in solr to return the result, which include the entity users, picked.
+2.4. Implementation of topical/semantic search
+We have implemented several function modules, so we use Carrot to implement this function and we set up the solrconfig.xml file based on we need. Based on Carrot algorithm, there are several algorithms we can choose [5]: STC, kmeans, and lingo, and we choose STC as a default clustering algorithm, in order to save time and have a good performance of the system and balance the server workload and runtime of system, and we can easily change the clustering algorithm with different query command line. To cluster the topic and organize the content into topic, we have to use the tweet text as unique id. Moreover, we set different index fields with different weight to improve the performance and get more reasonable clustering topics.
+The specific setting of the solrconfig.xml file is following:
+<requestHandler name="/clustering" class="solr.SearchHandler">
+	<lst name="defaults">
+ 	<bool name="clustering">true</bool>
+ 	<bool name="clustering.results">true</bool>
+ 	<str name="carrot.title">id</str>
+ 	<str name="carrot.url">tweet_urls</str>
+ 	<str name="carrot.snippet">name</str>
+ 	<bool name="carrot.produceSummary">true</bool>
+ 	<bool name="carrot.outputSubClusters">false</bool>
+ 	<str name="defType">edismax</str>
+ 	<str name="qf">
+               text^0.5 tweet_urls^2.0 name^1 id^10.0 tweet_hashtags^1
+ 	</str>
+ 	<str name="q.alt">*:*</str>
+ 	<str name="rows">100</str>
+ 	<str name="fl">*,score</str>
+	</lst>
+	<arr name="last-components">
+     <str>clustering</str>
+	</arr>
+ </requestHandler>
+Of course, there some other small setting you can easily find them in the src file.
+After finishing this, we can have the clustering results during the query time.
+Actually, when you search some keywords, our system would output the clustered query result to Json file, and then we decode the Json file to array, and get the corresponding clustering topics and the number of the document based on the keywords of the Json file and we can output the documents of the corresponding topic. In this system, to have good user experience, we output the first 5 of clustering topics based on the relevant scores and the number of the documents for each topic. Of course you can search each clustering topic and get the documents. And we use PHP to output these results.
+2.5. Implementation of Cross-Document Analytics
+For the Cross-Document Analytics part, we analyze volume of tweets by hashtags, sentiment analysis and analytics illustrating cultural differences [6]. When one query is applied, the volume of tweets by hashtags was presented on the web by using faceted searching of solr. We combine sentiment analysis and analytics illustrating cultural differences by presenting positive/negative attitudes of tweets with different languages. The sentiment analysis is extracted from the response of Alchemy API. 
+3. Use case, example and result
+The initial page for the Optimal Information Retrieval System has a minimalistic style, which simply includes the name of the search engine and a search bar. Typing a topic into the search bar, such as Paris Attacks, and then pressing search will initialize the searching algorithms. It will transition to the results page, which includes various widgets, and features that enhance the users’ search experience. A search bar is still included at the top of the results page to allow the user to enter a new query whenever they wish. Beyond that however, the results page is vastly different.
+3.1. Use case and example and result of multi-lingual 
+The first widget that a user will likely see on the results page is the bar graph that dominates the middle of the page. This graph shows the number of tweets that are returned for each language in the currently displayed results that are below the graph. By default, the results are multi-lingual since the query was evaluated in a cross-lingual way; this can be confirmed by just scrolling through the results to see that there are tweets from all four languages included. However, if the user selects one of the four buttons above the graph that say “English”, “German”, “French”, and “Arabic” then this will alter the results to only display tweets from the selected language. For example, if “German” is selected, then all of the tweets below the graph will be those that were written in German, while the graph will change to only have the German bar be above zero. The other three languages will turn to zero since the displayed results no longer include any results from those languages. The graph will also change when filtered through the faceted search options.
+3.2 Use case and example and result of Content Tagging and faceted search
+For the Content Tagging and faceted search feature, these two features have some overlapping; cause we know the facet search need use the tagged entities to search the content. So we talk about the two features in one section:
+The user would look to the left side of the screen where several content tagging reside. These categories include significant people, countries, cities, and hashtags, which were identified from the returned tweets through content tagging. This way if the user sees a significant person, such as Barrack Obama, listed among the options, then they would know for sure that there are tweets that mention him since these listed option were taken from the tweets. The number of tweets that actually include each tag is shown in parenthesis to the right of the tag; for example there are 16 tweets that mention President Obama when the previously mentioned “Paris Attacks” query is entered. Furthermore, if one of the tags, such as Obama, is selected, and then the “Faceted Search” button is pressed, then the results will be changed to only display those tweets that mention President Obama. The bar graph will also change to accommodate the newly filtered search results.
+3.3 Use case and example and result of Cross-document analytics
+Below the topic circle are the results from the cross-document analytics, which takes the form of an overall value and a second circle graph. These values measure the overall feelings of sentiment from the tweets. The lower the value, the more negative the feelings on the topic are; for a continued example with the query “Paris Attacks” the overall results are negative at -0.370812 which makes sense since it was a tragic event that most tweeters would be commiserating over. The circle graph below this value will present the feelings of sentiment from the tweets, but separated into the four languages. Hovering over each section of the circle will display the language and sentiment value for that language. For example, again with the query “Paris Attacks” the English section of the graph shows that the general tweets of the English tweets is negative at -0.515399.
+The bottom of the page holds an additional display from the cross document analytics in the form of a second bar graph. This graph displays the most popular hashtags used among the returned tweets. We use these hashtags to track the trending and subtrending topics. When the query “Paris Attacks” is entered, the top eight hash tags are used here, which you can see the topic trending and how the subtrending topics goes and let people have a deeper understanding of the entire story; such as the hashtag “paris” which is included in over 500 tweets.
+3.4 Use case and example and result of topical search
+The right side is occupied by the widgets that display the results of the topical/semantic search. The results of this clustering are shown in the circle graph on the top right of the page. It is split into several different sections, which are color coded with the list of topics below the circle graph. A user can also hover over each section of the graph to see what the topic was and how many tweets belong to that topic. This graph changes only with the query, so any of the previously mentioned filtering options do not affect it.
+For example when you search “Paris attack”, after you click search button, you will get clustering topics circle in the upper right corner of the result page, and which displays the clustered topics and the number of documents for each topic.
+ 
+4. Limitations, future work
+4.1 Limitations,
+Due to the limited time (you know we have four courses and several projects to do.) and resource such as we only have three team members and the server only has 1 GB free Memory, so we did not implement all the functions and in order to enhance the user experience and we did some balance between the function module and complexity of the system.
+4.2 Future work
+We plan to implement all the function modules in the list and optimize the GUI, of course we want make our system automatically crawling the Internet and dynamic update the index list, of course this would need much bigger server.
+
+Acknowledge
+Thank you for the Professor Srihari and the TAs help and everyone in the team.
+
+
+
+Reference
+[1] https://aws.amazon.com/
+[2] http://www.basistech.com/indexing-strategies-for-multilingual-search-with-solr-and-rosette/
+[3] https://wiki.apache.org/solr/SimpleFacetParameters
+[4] https://wiki.apache.org/solr/UserTagDesign
+[5] https://cwiki.apache.org/confluence/display/solr/Result+Clustering
+[6] https://lucene.apache.org/solr/3_6_2/doc-files/tutorial.html
+
